@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Gerenciamento de Produtos</title>
+</head>
+<body>
+  <h1>Gerenciamento de Produtos</h1>
+
+  <h2 id="titulo-form">Cadastrar produto</h2>
+  <form id="form-produto">
+    <input type="hidden" id="id">
+
+    <div>
+      <label for="nome">Nome:</label>
+      <input type="text" id="nome" required>
+    </div>
+    <div>
+      <label for="preco">Preço:</label>
+      <input type="number" id="preco" step="0.01" min="0" required>
+    </div>
+    <div>
+      <label for="quantidade">Quantidade:</label>
+      <input type="number" id="quantidade" step="1" min="0" required>
+    </div>
+
+    <button type="submit" id="btn-salvar">Cadastrar</button>
+    <button type="button" id="btn-cancelar" hidden>Cancelar edição</button>
+  </form>
+
+  <div id="mensagem"></div>
+
+  <h2>Produtos cadastrados</h2>
+  <table border="1">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Nome</th>
+        <th>Preço</th>
+        <th>Quantidade</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody id="lista"></tbody>
+  </table>
+
+  <script>
+    const API = 'http://localhost:3001/produtos';
+    const form = document.getElementById('form-produto');
+    const lista = document.getElementById('lista');
+    const mensagem = document.getElementById('mensagem');
+    const campoId = document.getElementById('id');
+    const campoNome = document.getElementById('nome');
+    const campoPreco = document.getElementById('preco');
+    const campoQuantidade = document.getElementById('quantidade');
+    const btnSalvar = document.getElementById('btn-salvar');
+    const btnCancelar = document.getElementById('btn-cancelar');
+    const tituloForm = document.getElementById('titulo-form');
+
+    function mostrarMensagem(texto) {
+      mensagem.textContent = texto;
+    }
+
+    async function carregarProdutos() {
+      const resposta = await fetch(API);
+      const produtos = await resposta.json();
+
+      lista.innerHTML = '';
+      produtos.forEach((p) => {
+        const linha = document.createElement('tr');
+        linha.innerHTML =
+          '<td>' + p.id + '</td>' +
+          '<td></td>' +
+          '<td>R$ ' + p.preco.toFixed(2) + '</td>' +
+          '<td>' + p.quantidade + '</td>' +
+          '<td></td>';
+        linha.children[1].textContent = p.nome;
+
+        const btnEditar = document.createElement('button');
+        btnEditar.textContent = 'Editar';
+        btnEditar.onclick = () => editar(p);
+
+        const btnExcluir = document.createElement('button');
+        btnExcluir.textContent = 'Excluir';
+        btnExcluir.onclick = () => excluir(p.id);
+
+        linha.children[4].append(btnEditar, ' ', btnExcluir);
+        lista.appendChild(linha);
+      });
+    }
+
+    function editar(produto) {
+      campoId.value = produto.id;
+      campoNome.value = produto.nome;
+      campoPreco.value = produto.preco;
+      campoQuantidade.value = produto.quantidade;
+      tituloForm.textContent = 'Editar produto #' + produto.id;
+      btnSalvar.textContent = 'Salvar alterações';
+      btnCancelar.hidden = false;
+    }
+
+    function limparFormulario() {
+      form.reset();
+      campoId.value = '';
+      tituloForm.textContent = 'Cadastrar produto';
+      btnSalvar.textContent = 'Cadastrar';
+      btnCancelar.hidden = true;
+    }
+
+    form.addEventListener('submit', async (evento) => {
+      evento.preventDefault();
+
+      const dados = {
+        nome: campoNome.value,
+        preco: Number(campoPreco.value),
+        quantidade: Number(campoQuantidade.value),
+      };
+
+      const editando = campoId.value !== '';
+      const resposta = await fetch(editando ? API + '/' + campoId.value : API, {
+        method: editando ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dados),
+      });
+      const resultado = await resposta.json();
+
+      if (!resposta.ok) {
+        mostrarMensagem('Erro: ' + resultado.erro);
+        return;
+      }
+
+      mostrarMensagem(editando ? 'Produto atualizado.' : 'Produto cadastrado.');
+      limparFormulario();
+      carregarProdutos();
+    });
+
+    btnCancelar.addEventListener('click', () => {
+      limparFormulario();
+      mostrarMensagem('');
+    });
+
+    async function excluir(id) {
+      if (!confirm('Excluir o produto #' + id + '?')) return;
+
+      const resposta = await fetch(API + '/' + id, { method: 'DELETE' });
+      const resultado = await resposta.json();
+
+      mostrarMensagem(resposta.ok ? resultado.mensagem : 'Erro: ' + resultado.erro);
+      carregarProdutos();
+    }
+
+    carregarProdutos();
+  </script>
+</body>
+</html>
